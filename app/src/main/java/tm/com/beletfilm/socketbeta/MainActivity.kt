@@ -1,7 +1,7 @@
 package tm.com.beletfilm.socketbeta
 
 import android.Manifest
-import android.app.PendingIntent
+import android.app.Activity
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
@@ -14,54 +14,69 @@ import android.content.pm.PackageManager
 
 import androidx.core.content.ContextCompat
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.view.isVisible
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProviders
 import io.socket.client.Socket
 import kotlinx.android.synthetic.main.activity_main.*
+import tm.com.beletfilm.socketbeta.main.MainViewModel
+import tm.com.beletfilm.socketbeta.model.ConnectionStatus
+import tm.com.beletfilm.socketbeta.settings.SettingsActivity
 import java.lang.Exception
 
 
 class MainActivity : AppCompatActivity() {
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
+
         requestSmsPermission()
 
-        SocketHandler.setSocket()
-        SocketHandler.establishConnection()
+        viewModel.prepSocket()
 
-        val mSocket = SocketHandler.getSocket()
+        viewModel.isNewMessage.observe(this, Observer {
+            if (it==true && viewModel.sendSms.value!=null)
+                sendSMS(viewModel.sendSms.value!!.phone, viewModel.sendSms.value!!.message)
+        })
 
-
-        val gson = Gson()
-
-        mSocket.on("message") { args ->
-            if (args[0] != null) {
-                val a = gson.toJson(args[0])
-                val res = gson.fromJson(a, nameValuePairs::class.java)
-
-                val phone = res.nameValuePairs.phone
-                val message = res.nameValuePairs.message
-
-
-                runOnUiThread {
-                    Log.e("SOCKET EVENT MESSAGE", phone)
-                    Log.e("SOCKET EVENT MESSAGE", message)
-
-                    sendSMS("+993$phone", message)
-
-                    mSocket.emit("success")
+        viewModel.connectionStatus.observe(this, Observer {
+            when (it) {
+                ConnectionStatus.CONNECTING -> {
+                    homeProgressBar.isVisible = true
+                    homeLottieAnim.isVisible = false
+                    homeConnectionStatus.text = "CONNECTING"
+                }
+                ConnectionStatus.CONNECTED -> {
+                    homeLottieAnim.isVisible = true
+                    homeLottieAnim.setAnimation(R.raw.scan)
+                    homeProgressBar.isVisible = false
+                    homeConnectionStatus.text = "CONNECTED"
+                }
+                ConnectionStatus.DISCONNECTED -> {
+                    homeLottieAnim.isVisible = true
+                    homeLottieAnim.setAnimation(R.raw.disconnected)
+                    homeConnectionStatus.text = "DISCONNECTED"
+                    homeProgressBar.isVisible = false
+                }
+                ConnectionStatus.CONNECTION_ERROR -> {
+                    homeLottieAnim.isVisible = true
+                    homeLottieAnim.setAnimation(R.raw.disconnected)
+                    homeProgressBar.isVisible = false
+                    homeConnectionStatus.text = "CONNECTION_ERROR"
                 }
             }
-        }
+        })
 
-        mSocket.on(Socket.EVENT_CONNECT) {
-            Log.e("SOCKET_EVENT", "CONNECTED")
-            Toast.makeText(this,"CONNECTED", Toast.LENGTH_SHORT).show()
-        }.on(Socket.EVENT_DISCONNECT) {
-            Log.e("SOCKET_EVENT", "DISCONNECTED")
-            Toast.makeText(this,"DISCONNECTED", Toast.LENGTH_SHORT).show()
+        homeSettingsBtn.setOnClickListener {
+            openSettingsForResult()
         }
-
     }
 
     private val PERMISSION_SEND_SMS = 123
@@ -102,5 +117,28 @@ class MainActivity : AppCompatActivity() {
             ).show()
             ex.printStackTrace()
         }
+    }
+
+    override fun onActivityReenter(resultCode: Int, data: Intent?) {
+        super.onActivityReenter(resultCode, data)
+
+    }
+
+    var resultLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) {
+
+                val data: Intent? = result.data
+
+                val result = data?.getStringExtra("result")
+
+                Log.e("resultLauncher", result.toString())
+
+            }
+        }
+
+    fun openSettingsForResult() {
+        val intent = Intent(this, SettingsActivity::class.java)
+        resultLauncher.launch(intent)
     }
 }
