@@ -2,44 +2,56 @@ package tm.com.beletfilm.socketbeta
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.telephony.SmsManager
 import android.util.Log
-import com.google.gson.Gson
 import androidx.core.app.ActivityCompat
-
 import android.content.pm.PackageManager
-
 import androidx.core.content.ContextCompat
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.ViewModelProviders
-import io.socket.client.Socket
 import kotlinx.android.synthetic.main.activity_main.*
 import tm.com.beletfilm.socketbeta.main.MainViewModel
 import tm.com.beletfilm.socketbeta.model.ConnectionStatus
 import tm.com.beletfilm.socketbeta.settings.SettingsActivity
 import java.lang.Exception
+import android.content.SharedPreferences
+import androidx.activity.viewModels
+import tm.com.beletfilm.socketbeta.model.Const
 
 
 class MainActivity : AppCompatActivity() {
+
+
+    val viewModel by viewModels<MainViewModel>()
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
+//        viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
 
-        requestSmsPermission()
 
-        viewModel.prepSocket()
+        var prefs = getSharedPreferences("mySharedPref", MODE_PRIVATE)
+        var ip = prefs.getString("ip", "BOSH")
+        var phone = prefs.getString("phone", "BOSH")
+
+        if (ip=="BOSH" && phone=="BOSH" ){
+            requestSmsPermission()
+            writeData(Const.DEFAULT_IP,Const.DEFAULT_PHONE)
+            viewModel.prepSocket(Const.DEFAULT_IP,Const.DEFAULT_PHONE)
+        }else{
+            if (ip != null && phone!=null) {
+                viewModel.prepSocket(ip,phone)
+            }
+        }
 
         viewModel.isNewMessage.observe(this, Observer {
             if (it==true && viewModel.sendSms.value!=null)
@@ -130,9 +142,15 @@ class MainActivity : AppCompatActivity() {
 
                 val data: Intent? = result.data
 
-                val result = data?.getStringExtra("result")
+                val ip = data?.getStringExtra("ip")
+                val phone = data?.getStringExtra("phone")
 
-                Log.e("resultLauncher", result.toString())
+                if (ip!=null && phone!=null){
+                    Log.e("ACTIVITY_RESULT_IP", ip)
+                    Log.e("ACTIVITY_RESULT_PHONE", phone)
+                    writeData(ip,phone)
+                    viewModel.prepSocket(ip,phone)
+                }
 
             }
         }
@@ -141,4 +159,12 @@ class MainActivity : AppCompatActivity() {
         val intent = Intent(this, SettingsActivity::class.java)
         resultLauncher.launch(intent)
     }
+
+    fun writeData(ip:String, phone:String){
+        val editor = getSharedPreferences("mySharedPref", MODE_PRIVATE).edit()
+        editor.putString("ip", ip)
+        editor.putString("phone", phone)
+        editor.apply()
+    }
+
 }

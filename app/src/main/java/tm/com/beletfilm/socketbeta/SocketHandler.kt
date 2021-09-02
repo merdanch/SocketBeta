@@ -11,9 +11,15 @@ object SocketHandler {
     lateinit var mSocket: Socket
 
     @Synchronized
-    fun setSocket() {
+    fun setSocket(ip:String, phone:String) {
         try {
-            mSocket = IO.socket("http://45.93.136.141:5004?phone=64838630")
+            val uri = "http://$ip?phone=$phone"
+
+            mSocket = IO.socket(uri)
+
+            Log.e("setSocket uri", uri)
+            Log.e("setSocket ip", ip)
+            Log.e("setSocket phone", phone)
 
         } catch (e: URISyntaxException) {
             Log.e("setSocket", e.toString())

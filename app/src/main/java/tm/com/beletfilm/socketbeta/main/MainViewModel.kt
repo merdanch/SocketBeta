@@ -1,6 +1,12 @@
 package tm.com.beletfilm.socketbeta.main
 
+import android.content.Context
 import android.util.Log
+import androidx.appcompat.app.AppCompatActivity
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
@@ -14,8 +20,9 @@ import tm.com.beletfilm.socketbeta.Message
 import tm.com.beletfilm.socketbeta.SocketHandler
 import tm.com.beletfilm.socketbeta.model.ConnectionStatus
 import tm.com.beletfilm.socketbeta.nameValuePairs
+import java.util.concurrent.Flow
 
-class MainViewModel : ViewModel() {
+class MainViewModel() : ViewModel() {
 
     private var viewModelJob = Job()
     private val coroutineScope = CoroutineScope(viewModelJob + Dispatchers.Main)
@@ -32,11 +39,13 @@ class MainViewModel : ViewModel() {
     val connectionStatus: LiveData<ConnectionStatus>
         get() = _connectionStatus
 
-    fun prepSocket() {
+
+
+    fun prepSocket(ip:String,phone:String ) {
 
         _connectionStatus.postValue(ConnectionStatus.CONNECTING)
 
-        SocketHandler.setSocket()
+        SocketHandler.setSocket(ip,phone)
         SocketHandler.establishConnection()
 
         val mSocket = SocketHandler.getSocket()
@@ -79,7 +88,5 @@ class MainViewModel : ViewModel() {
         super.onCleared()
         viewModelJob.cancel()
     }
-
-
 
 }
